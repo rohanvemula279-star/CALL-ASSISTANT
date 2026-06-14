@@ -24,7 +24,7 @@ class GreetingTts(private val context: Context) {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         try {
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            audioManager.isSpeakerphoneOn = true
+            audioManager.isSpeakerphoneOn = false
         } catch (_: Exception) {}
 
         val result = if (greetingFile != null && greetingFile.exists()) {

@@ -91,6 +91,10 @@ class GatewayForegroundService : Service() {
             delay(2000)
 
             val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+            try {
+                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+                audioManager.isSpeakerphoneOn = false
+            } catch (_: Exception) {}
             val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                     .setAudioAttributes(
