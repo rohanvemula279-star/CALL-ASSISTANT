@@ -161,7 +161,15 @@ class GatewayForegroundService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
-        startForeground(GatewayApp.FG_NOTIF_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                GatewayApp.FG_NOTIF_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL,
+            )
+        } else {
+            startForeground(GatewayApp.FG_NOTIF_ID, notification)
+        }
     }
 
     override fun onDestroy() {
