@@ -117,7 +117,7 @@ class GreetingTts(private val context: Context) {
                 .build()
 
             track.play()
-            track.setVolume(track.maxVolume)
+            track.setVolume(1.0f)
             val fis = FileInputStream(file)
             // Skip the RIFF/WAVE header (and any LIST/INFO chunks) so we only feed
             // raw PCM samples to the track — otherwise the header bytes play as noise.

@@ -63,7 +63,7 @@ class CallAudioHandler(private val context: Context) {
 
             audioTrack = track
             track.play()
-            track.setVolume(track.maxVolume)
+            track.setVolume(1.0f)
 
             val fis = FileInputStream(greetingFile)
             val pcmStream = skipToPcmData(fis)
