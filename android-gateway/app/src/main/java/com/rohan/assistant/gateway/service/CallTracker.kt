@@ -112,7 +112,7 @@ object CallTracker {
         }
     }
 
-    private fun resolveNumber(context: Context, rawNumber: String): String {
+    private suspend fun resolveNumber(context: Context, rawNumber: String): String {
         if (rawNumber.isBlank() || rawNumber == "unknown") {
             val resolved = CallLogResolver.recentMissedCall(context)
             if (resolved != null) {
