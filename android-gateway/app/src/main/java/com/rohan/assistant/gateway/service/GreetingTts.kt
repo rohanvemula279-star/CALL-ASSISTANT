@@ -9,6 +9,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import com.rohan.assistant.gateway.util.Logger
 import java.io.File
+import java.io.FileInputStream
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -23,10 +24,10 @@ class GreetingTts(private val context: Context) {
         if (greetingFile != null && greetingFile.exists()) {
             return playWavFile(greetingFile)
         }
-        return speakViaTts()
+        return speakTeluguViaTts()
     }
 
-    private fun speakViaTts(): Boolean {
+    private fun speakTeluguViaTts(): Boolean {
         val latch = CountDownLatch(1)
         var success = false
 
@@ -43,7 +44,12 @@ class GreetingTts(private val context: Context) {
 
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.US
+                val teluguLocale = Locale("te", "IN")
+                val available = tts?.setLanguage(teluguLocale)
+                if (available == TextToSpeech.LANG_NOT_SUPPORTED || available == TextToSpeech.LANG_MISSING_DATA) {
+                    tts?.language = Locale.US
+                }
+
                 tts?.setOnUtteranceProgressListener(listener)
 
                 val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -52,29 +58,19 @@ class GreetingTts(private val context: Context) {
 
                 val uid = UUID.randomUUID().toString()
                 tts?.speak(
-                    "Hi, Rohan is currently busy. Please leave a message after the beep, and he will get back to you as soon as possible.",
-                    TextToSpeech.QUEUE_FLUSH,
-                    null,
-                    uid,
+                    "రోహన్ సర్ బిజీగా ఉన్నారు. నేను అతని అసిస్టెంట్ మాక్స్ ని. నేను మీరు చెప్పిన సమాచారాన్ని సర్ కి పంపిస్తాను.",
+                    TextToSpeech.QUEUE_FLUSH, null, uid,
                 )
 
-                try {
-                    latch.await(15, TimeUnit.SECONDS)
-                } catch (_: InterruptedException) {}
+                try { latch.await(15, TimeUnit.SECONDS) } catch (_: InterruptedException) {}
             } else {
-                Logger.w(TAG, "TTS initialization failed: $status")
+                Logger.w(TAG, "TTS init failed: $status")
                 latch.countDown()
             }
         }
 
-        try {
-            latch.await(20, TimeUnit.SECONDS)
-        } catch (_: InterruptedException) {}
-
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
-
+        try { latch.await(20, TimeUnit.SECONDS) } catch (_: InterruptedException) {}
+        tts?.stop(); tts?.shutdown(); tts = null
         return success
     }
 
@@ -87,7 +83,6 @@ class GreetingTts(private val context: Context) {
             val bufferSize = AudioTrack.getMinBufferSize(
                 16000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
             )
-
             val track = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
@@ -97,25 +92,22 @@ class GreetingTts(private val context: Context) {
                 )
                 .setAudioFormat(
                     AudioFormat.Builder()
-                        .setSampleRate(16000)
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                        .build()
+                        .setSampleRate(16000).setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()
                 )
                 .setBufferSizeInBytes(bufferSize)
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
 
             track.play()
-            val fis = java.io.FileInputStream(file)
+            val fis = FileInputStream(file)
             val buffer = ByteArray(bufferSize)
             var bytesRead: Int
             while (fis.read(buffer).also { bytesRead = it } != -1) {
                 track.write(buffer, 0, bytesRead)
             }
             fis.close()
-            track.stop()
-            track.release()
+            track.stop(); track.release()
             return true
         } catch (e: Exception) {
             Logger.e(TAG, "WAV playback failed: ${e.message}", e)

@@ -18,3 +18,5 @@ tenacity
 jinja2
 python-dateutil
 livekit
+edge-tts
+edge-tts

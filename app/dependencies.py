@@ -1,6 +1,8 @@
 from typing import Optional
 
 from app.config import Settings, get_settings
+from app.services.edgetts_service import EdgeTTSService
+from app.services.edgetts_service import EdgeTTSService
 from app.services.livekit_service import LiveKitService
 from app.services.missed_call_service import MissedCallService
 from app.services.ollama_client import OllamaClient
@@ -18,6 +20,7 @@ class _Container:
         self.piper: PiperService = PiperService(self.settings)
         self.telegram: TelegramNotifier = TelegramNotifier(self.settings)
         self.livekit: LiveKitService = LiveKitService(self.settings)
+        self.edgetts: EdgeTTSService = EdgeTTSService()
         self.store: ConversationStore = ConversationStore(self.settings)
         self.missed_calls: MissedCallService = MissedCallService(
             settings=self.settings,
@@ -68,3 +71,7 @@ def get_missed_call_service() -> MissedCallService:
 
 def get_livekit() -> LiveKitService:
     return get_container().livekit
+
+
+def get_edgetts() -> EdgeTTSService:
+    return get_container().edgetts

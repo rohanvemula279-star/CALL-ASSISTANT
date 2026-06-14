@@ -25,6 +25,6 @@ interface GatewayApi {
         @Part("call_id") callId: RequestBody,
     ): VoicemailResponse
 
-    @GET("/api/greeting")
+    @GET("/api/greeting/english")
     suspend fun getGreeting(): okhttp3.ResponseBody
 }

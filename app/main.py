@@ -16,8 +16,10 @@ from app.routers import helpers as helpers_router
 from app.routers import incoming_call as incoming_call_router
 from app.routers import meta as meta_router
 from app.routers import speak as speak_router
+from app.routers import telugu_assistant as telugu_assistant_router
 from app.routers import transcribe as transcribe_router
 from app.routers import voicemail as voicemail_router
+from app.routers import telugu_assistant as telugu_assistant_router
 
 setup_logging()
 log = get_logger(__name__)
@@ -44,6 +46,7 @@ async def lifespan(app: FastAPI):
 
     await asyncio.to_thread(container.whisper.startup)
     await asyncio.to_thread(container.piper.startup)
+    await asyncio.to_thread(container.edgetts.startup)
 
     log.info("app.ready", port=settings.app_port)
     try:
@@ -56,6 +59,7 @@ async def lifespan(app: FastAPI):
         await container.store.shutdown()
         await asyncio.to_thread(container.whisper.shutdown)
         await asyncio.to_thread(container.piper.shutdown)
+        await asyncio.to_thread(container.edgetts.shutdown)
 
 
 def create_app() -> FastAPI:
@@ -80,16 +84,25 @@ def create_app() -> FastAPI:
     app.include_router(speak_router.router)
     app.include_router(incoming_call_router.router)
     app.include_router(voicemail_router.router)
+    app.include_router(telugu_assistant_router.router)
     app.include_router(greeting_router.router)
     app.include_router(helpers_router.router)
     app.include_router(meta_router.router)
 
+    from pathlib import Path
     piper = get_piper()
     piper.output_dir.mkdir(parents=True, exist_ok=True)
     app.mount(
         "/storage/tts",
         StaticFiles(directory=str(piper.output_dir)),
         name="tts",
+    )
+    telugu_dir = Path("storage/telugu_tts")
+    telugu_dir.mkdir(parents=True, exist_ok=True)
+    app.mount(
+        "/storage/telugu_tts",
+        StaticFiles(directory=str(telugu_dir)),
+        name="telugu_tts",
     )
 
     @app.exception_handler(Exception)
