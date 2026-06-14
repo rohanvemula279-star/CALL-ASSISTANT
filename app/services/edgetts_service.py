@@ -23,6 +23,12 @@ class EdgeTTSService:
         self.output_dir = OUTPUT_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+    async def startup(self) -> None:
+        log.info("edgetts.startup")
+
+    async def shutdown(self) -> None:
+        log.info("edgetts.shutdown")
+
     async def synthesize(self, text: str, voice: str = TELUGU_VOICE) -> dict:
         out_id = uuid.uuid4().hex[:12]
         mp3_path = self.output_dir / f"speech_{out_id}.mp3"
