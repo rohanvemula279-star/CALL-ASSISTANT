@@ -128,7 +128,7 @@ class CallAudioHandler(private val context: Context) {
                 MediaRecorder()
             }
 
-            recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
             recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             recorder.setAudioSamplingRate(16000)
