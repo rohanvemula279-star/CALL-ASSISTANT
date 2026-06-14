@@ -25,14 +25,17 @@ class CallAudioHandler(private val context: Context) {
         if (isPlaying) return
         isPlaying = true
 
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val savedVolume = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+
         try {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             audioManager.isSpeakerphoneOn = true
-
-            val streamVolume = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
-            val streamMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-            audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, streamMax, 0)
+            audioManager.setStreamVolume(
+                AudioManager.STREAM_VOICE_CALL,
+                audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL),
+                0,
+            )
 
             val bufferSize = AudioTrack.getMinBufferSize(
                 16000,
@@ -60,6 +63,7 @@ class CallAudioHandler(private val context: Context) {
 
             audioTrack = track
             track.play()
+            track.setVolume(track.maxVolume)
 
             val fis = FileInputStream(greetingFile)
             val pcmStream = skipToPcmData(fis)
@@ -73,13 +77,12 @@ class CallAudioHandler(private val context: Context) {
             track.stop()
             track.release()
             audioTrack = null
-
-            audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, streamVolume, 0)
-            audioManager.isSpeakerphoneOn = false
-            audioManager.mode = AudioManager.MODE_NORMAL
         } catch (e: Exception) {
             Logger.e(TAG, "Greeting playback failed: ${e.message}", e)
         } finally {
+            try { audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, savedVolume, 0) } catch (_: Exception) {}
+            try { audioManager.isSpeakerphoneOn = false } catch (_: Exception) {}
+            try { audioManager.mode = AudioManager.MODE_NORMAL } catch (_: Exception) {}
             isPlaying = false
         }
     }
