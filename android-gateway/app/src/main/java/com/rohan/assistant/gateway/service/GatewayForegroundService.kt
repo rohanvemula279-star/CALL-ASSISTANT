@@ -29,6 +29,7 @@ import java.util.UUID
 class GatewayForegroundService : Service() {
 
     private var audioHandler: CallAudioHandler? = null
+    private var greetingTts: GreetingTts? = null
     private var greetingFile: File? = null
     private var scope = CoroutineScope(Dispatchers.IO)
     private var processingJob: Job? = null
@@ -39,6 +40,7 @@ class GatewayForegroundService : Service() {
         super.onCreate()
         Logger.i(TAG, "Service onCreate")
         audioHandler = CallAudioHandler(this)
+        greetingTts = GreetingTts(this)
         downloadGreeting()
     }
 
@@ -67,25 +69,24 @@ class GatewayForegroundService : Service() {
         Logger.i(TAG, "Handling incoming call from $number ($callId)")
 
         processingJob = scope.launch {
+            Logger.i(TAG, "Speaking greeting...")
             val greeting = getGreetingFile()
-            if (greeting != null) {
-                Logger.i(TAG, "Playing greeting...")
-                audioHandler?.playGreeting(greeting)
+            val spoke = greetingTts?.speak(greeting) ?: false
 
+            if (spoke) {
                 delay(500)
-                Logger.i(TAG, "Starting recording...")
-                val recordingFile = audioHandler?.startRecording()
+            }
 
-                delay(RECORD_DURATION_MS)
+            Logger.i(TAG, "Starting recording...")
+            val recordingFile = audioHandler?.startRecording()
 
-                val result = audioHandler?.stopRecording()
-                Logger.i(TAG, "Recording done: ${result?.absolutePath}")
+            delay(RECORD_DURATION_MS)
 
-                if (result != null && result.exists()) {
-                    uploadRecording(result, number, name ?: "", callId)
-                }
-            } else {
-                Logger.w(TAG, "Greeting file not available, skipping greeting")
+            val result = audioHandler?.stopRecording()
+            Logger.i(TAG, "Recording done: ${result?.absolutePath}")
+
+            if (result != null && result.exists()) {
+                uploadRecording(result, number, name ?: "", callId)
             }
         }
     }
