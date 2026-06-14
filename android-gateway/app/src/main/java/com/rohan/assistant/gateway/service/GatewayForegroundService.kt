@@ -39,11 +39,16 @@ class GatewayForegroundService : Service() {
         super.onCreate()
         Logger.i(TAG, "Service onCreate")
         audioHandler = CallAudioHandler(this)
+        downloadGreeting()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Logger.i(TAG, "Service onStartCommand action=${intent?.action}")
-        startInForegroundCompat()
+        try {
+            startInForegroundCompat()
+        } catch (t: Throwable) {
+            Logger.e(TAG, "Failed to start foreground: ${t.message}", t)
+        }
 
         when (intent?.action) {
             ACTION_DOWNLOAD_GREETING -> downloadGreeting()
@@ -156,15 +161,7 @@ class GatewayForegroundService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                GatewayApp.FG_NOTIF_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL,
-            )
-        } else {
-            startForeground(GatewayApp.FG_NOTIF_ID, notification)
-        }
+        startForeground(GatewayApp.FG_NOTIF_ID, notification)
     }
 
     override fun onDestroy() {

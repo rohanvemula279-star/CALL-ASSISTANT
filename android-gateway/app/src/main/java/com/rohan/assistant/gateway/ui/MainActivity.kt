@@ -37,51 +37,61 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        try {
+            super.onCreate(savedInstanceState)
+            binding = ActivityMainBinding.inflate(layoutInflater)
+            setContentView(binding.root)
 
-        val app = application as GatewayApp
-        binding.urlInput.setText(app.settings.serverUrl)
-        binding.autoAnswerSwitch.isChecked = app.settings.autoAnswerEnabled
+            val app = application as GatewayApp
+            binding.urlInput.setText(app.settings.serverUrl)
+            binding.autoAnswerSwitch.isChecked = app.settings.autoAnswerEnabled
 
-        binding.startButton.setOnClickListener {
-            val url = binding.urlInput.text?.toString().orEmpty().trim()
-            if (url.isNotBlank()) app.settings.serverUrl = url
-            requestPermissionsThenStart()
-        }
+            binding.startButton.setOnClickListener {
+                val url = binding.urlInput.text?.toString().orEmpty().trim()
+                if (url.isNotBlank()) app.settings.serverUrl = url
+                requestPermissionsThenStart()
+            }
 
-        binding.stopButton.setOnClickListener { stopService() }
-        binding.discoverButton.setOnClickListener { startDiscover() }
+            binding.stopButton.setOnClickListener { stopService() }
+            binding.discoverButton.setOnClickListener { startDiscover() }
 
-        binding.autoAnswerSwitch.setOnCheckedChangeListener { _, isChecked ->
-            app.settings.autoAnswerEnabled = isChecked
-            CallTracker.autoAnswerEnabled = isChecked
-        }
+            binding.autoAnswerSwitch.setOnCheckedChangeListener { _, isChecked ->
+                app.settings.autoAnswerEnabled = isChecked
+                CallTracker.autoAnswerEnabled = isChecked
+            }
 
-        binding.accessibilityButton.setOnClickListener {
-            openAccessibilitySettings()
+            binding.accessibilityButton.setOnClickListener {
+                openAccessibilitySettings()
+            }
+        } catch (t: Throwable) {
+            Toast.makeText(this, "Error: ${t.message}", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun openAccessibilitySettings() {
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         startActivity(intent)
-        Toast.makeText(this, "Enable 'Rohan Assistant' in Accessibility Services", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Enable 'Rohan Call Assistant' in Accessibility Services", Toast.LENGTH_LONG).show()
     }
 
     private fun startDiscover() {
         if (discoverJob?.isActive == true) return
         binding.statusText.text = getString(R.string.label_status, "discovering…")
         discoverJob = CoroutineScope(Dispatchers.IO).launch {
-            val found = LanDiscovery.discover(prefer = (application as GatewayApp).settings.serverUrl)
-            withContext(Dispatchers.Main) {
-                if (found != null) {
-                    binding.urlInput.setText(found)
-                    (application as GatewayApp).settings.serverUrl = found
-                    binding.statusText.text = "Found: $found"
-                } else {
-                    binding.statusText.text = "Not found. Make sure the laptop is on the same Wi-Fi."
+            try {
+                val found = LanDiscovery.discover(prefer = (application as GatewayApp).settings.serverUrl)
+                withContext(Dispatchers.Main) {
+                    if (found != null) {
+                        binding.urlInput.setText(found)
+                        (application as GatewayApp).settings.serverUrl = found
+                        binding.statusText.text = "Found: $found"
+                    } else {
+                        binding.statusText.text = "Not found. Make sure the laptop is on the same Wi-Fi."
+                    }
+                }
+            } catch (t: Throwable) {
+                withContext(Dispatchers.Main) {
+                    binding.statusText.text = "Discover error: ${t.message}"
                 }
             }
         }
@@ -135,7 +145,6 @@ class MainActivity : AppCompatActivity() {
         val app = application as GatewayApp
         app.settings.serviceRunning = true
         GatewayForegroundService.start(this)
-        GatewayForegroundService.startWithAction(this, GatewayForegroundService.ACTION_DOWNLOAD_GREETING)
         refreshStatus()
     }
 

@@ -56,7 +56,7 @@
         style="@style/Widget.MaterialComponents.Button.TextButton"
         app:layout_constraintTop_toBottomOf="@id/stopButton" />
 
-    <Switch
+    <CheckBox
         android:id="@+id/autoAnswerSwitch"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
