@@ -21,10 +21,24 @@ class GreetingTts(private val context: Context) {
     private var ttsReady = false
 
     fun speak(greetingFile: File?): Boolean {
-        if (greetingFile != null && greetingFile.exists()) {
-            return playWavFile(greetingFile)
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        try {
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            audioManager.isSpeakerphoneOn = true
+        } catch (_: Exception) {}
+
+        val result = if (greetingFile != null && greetingFile.exists()) {
+            playWavFile(greetingFile)
+        } else {
+            speakTeluguViaTts()
         }
-        return speakTeluguViaTts()
+
+        try {
+            audioManager.isSpeakerphoneOn = false
+            audioManager.mode = AudioManager.MODE_NORMAL
+        } catch (_: Exception) {}
+
+        return result
     }
 
     private fun speakTeluguViaTts(): Boolean {
@@ -52,10 +66,6 @@ class GreetingTts(private val context: Context) {
 
                 tts?.setOnUtteranceProgressListener(listener)
 
-                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                audioManager.isSpeakerphoneOn = false
-
                 val uid = UUID.randomUUID().toString()
                 tts?.speak(
                     "రోహన్ సర్ బిజీగా ఉన్నారు. నేను అతని అసిస్టెంట్ మాక్స్ ని. నేను మీరు చెప్పిన సమాచారాన్ని సర్ కి పంపిస్తాను.",
@@ -76,10 +86,6 @@ class GreetingTts(private val context: Context) {
 
     private fun playWavFile(file: File): Boolean {
         try {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            audioManager.isSpeakerphoneOn = false
-
             val bufferSize = AudioTrack.getMinBufferSize(
                 16000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
             )

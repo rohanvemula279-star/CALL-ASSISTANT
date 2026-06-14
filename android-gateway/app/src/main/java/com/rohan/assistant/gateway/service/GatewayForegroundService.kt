@@ -5,8 +5,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -41,6 +43,7 @@ class GatewayForegroundService : Service() {
         Logger.i(TAG, "Service onCreate")
         audioHandler = CallAudioHandler(this)
         greetingTts = GreetingTts(this)
+        extractEmbeddedGreeting()
         downloadGreeting()
     }
 
@@ -61,6 +64,22 @@ class GatewayForegroundService : Service() {
         return START_STICKY
     }
 
+    private fun extractEmbeddedGreeting() {
+        try {
+            val dest = File(cacheDir, "greeting.wav")
+            if (dest.exists()) return
+            resources.openRawResource(R.raw.telugu_greeting).use { input ->
+                dest.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            greetingFile = dest
+            Logger.i(TAG, "Embedded greeting extracted to ${dest.absolutePath}")
+        } catch (t: Throwable) {
+            Logger.e(TAG, "Failed to extract embedded greeting: ${t.message}", t)
+        }
+    }
+
     private fun handleIncomingCall(intent: Intent) {
         val number = intent.getStringExtra(EXTRA_NUMBER) ?: "unknown"
         val name = intent.getStringExtra(EXTRA_NAME)
@@ -69,12 +88,32 @@ class GatewayForegroundService : Service() {
         Logger.i(TAG, "Handling incoming call from $number ($callId)")
 
         processingJob = scope.launch {
+            delay(2000)
+
+            val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+            val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build()
+                    )
+                    .build().also { audioManager.requestAudioFocus(it) }
+            } else {
+                null
+            }
+
             Logger.i(TAG, "Speaking greeting...")
             val greeting = getGreetingFile()
             val spoke = greetingTts?.speak(greeting) ?: false
 
             if (spoke) {
                 delay(500)
+            }
+
+            if (focusRequest != null) {
+                audioManager.abandonAudioFocusRequest(focusRequest)
             }
 
             Logger.i(TAG, "Starting recording...")
