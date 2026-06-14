@@ -10,6 +10,7 @@ import android.os.Build
 import com.rohan.assistant.gateway.util.Logger
 import java.io.File
 import java.io.FileInputStream
+import java.io.InputStream
 import java.util.UUID
 
 class CallAudioHandler(private val context: Context) {
@@ -27,7 +28,11 @@ class CallAudioHandler(private val context: Context) {
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            audioManager.isSpeakerphoneOn = false
+            audioManager.isSpeakerphoneOn = true
+
+            val streamVolume = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+            val streamMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+            audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, streamMax, 0)
 
             val bufferSize = AudioTrack.getMinBufferSize(
                 16000,
@@ -57,9 +62,10 @@ class CallAudioHandler(private val context: Context) {
             track.play()
 
             val fis = FileInputStream(greetingFile)
+            val pcmStream = skipToPcmData(fis)
             val buffer = ByteArray(bufferSize)
             var bytesRead: Int
-            while (fis.read(buffer).also { bytesRead = it } != -1 && isPlaying) {
+            while (pcmStream.read(buffer).also { bytesRead = it } != -1 && isPlaying) {
                 track.write(buffer, 0, bytesRead)
             }
             fis.close()
@@ -67,11 +73,40 @@ class CallAudioHandler(private val context: Context) {
             track.stop()
             track.release()
             audioTrack = null
+
+            audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, streamVolume, 0)
+            audioManager.isSpeakerphoneOn = false
+            audioManager.mode = AudioManager.MODE_NORMAL
         } catch (e: Exception) {
             Logger.e(TAG, "Greeting playback failed: ${e.message}", e)
         } finally {
             isPlaying = false
         }
+    }
+
+    private fun skipToPcmData(input: InputStream): InputStream {
+        val header = ByteArray(12)
+        if (input.read(header) < 12) return input
+        val riff = String(header, 0, 4, Charsets.US_ASCII)
+        val wave = String(header, 8, 4, Charsets.US_ASCII)
+        if (riff != "RIFF" || wave != "WAVE") {
+            input.close()
+            throw IllegalArgumentException("Not a valid WAV file")
+        }
+        while (true) {
+            val chunkId = ByteArray(4)
+            val sizeBuf = ByteArray(4)
+            if (input.read(chunkId) < 4 || input.read(sizeBuf) < 4) break
+            val size = ((sizeBuf[3].toInt() and 0xFF) shl 24) or
+                       ((sizeBuf[2].toInt() and 0xFF) shl 16) or
+                       ((sizeBuf[1].toInt() and 0xFF) shl 8) or
+                       (sizeBuf[0].toInt() and 0xFF)
+            val id = String(chunkId, 0, 4, Charsets.US_ASCII)
+            if (id == "data") return input
+            val padded = size + (size % 2)
+            input.skip(padded.toLong())
+        }
+        return input
     }
 
     fun startRecording(): File? {
