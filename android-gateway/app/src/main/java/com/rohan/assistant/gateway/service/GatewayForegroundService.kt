@@ -104,13 +104,11 @@ class GatewayForegroundService : Service() {
                 null
             }
 
-            Logger.i(TAG, "Speaking greeting...")
-            val greeting = getGreetingFile()
-            val spoke = greetingTts?.speak(greeting) ?: false
-
-            if (spoke) {
-                delay(500)
-            }
+            // Silent-record mode: no greeting playback (avoids echo / inaudible
+            // acoustic-coupling). The caller is told what to expect via the
+            // Telegram/SMS pre-notice instead. To re-enable a spoken greeting,
+            // call greetingTts?.speak(getGreetingFile()) here.
+            Logger.i(TAG, "Silent-record mode: skipping greeting playback")
 
             if (focusRequest != null) {
                 audioManager.abandonAudioFocusRequest(focusRequest)

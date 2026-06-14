@@ -1,61 +1,90 @@
+"""LiveKit voice agent — fully free/self-hosted stack.
+
+  STT  : local openai-whisper        (agent/whisper_stt.py)
+  LLM  : your local Ollama           (OpenAI-compatible /v1 endpoint)
+  TTS  : Microsoft edge-tts (Telugu) (agent/edge_tts_plugin.py)
+  VAD  : silero                      (free, bundled plugin)
+
+No paid APIs (no Deepgram/OpenAI/ElevenLabs). Uses LiveKit Cloud's free tier
+via LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET in .env.
+
+Run the worker (registers with LiveKit Cloud and waits for calls):
+
+    python livekit_agent.py dev
+
+Then connect a caller to a room (LiveKit SIP inbound, or the test playground)
+and the agent joins automatically and starts talking.
 """
-LiveKit Voice Agent — connects to LiveKit Cloud and uses Ollama for AI.
 
-Run:
-  python livekit_agent.py
+from __future__ import annotations
 
-Requires LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET in .env
-"""
-
-import asyncio
 import os
-import sys
 
 from dotenv import load_dotenv
+from livekit.agents import (
+    Agent,
+    AgentSession,
+    JobContext,
+    WorkerOptions,
+    cli,
+)
+from livekit.plugins import openai, silero
+
+from agent.edge_tts_plugin import EdgeTTS
+from agent.whisper_stt import WhisperSTT
 
 load_dotenv()
 
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")
-LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "")
-LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "minimax-m3:cloud")
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
+WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE") or None  # None = auto-detect
+TTS_VOICE = os.getenv("AGENT_TTS_VOICE", "te-IN-MohanNeural")
+
+# Ollama exposes an OpenAI-compatible API at /v1.
+OLLAMA_OPENAI_BASE = f"{OLLAMA_HOST}/v1"
+
+SYSTEM_PROMPT = (
+    "You are Max, Rohan's friendly phone assistant. Rohan is busy and cannot "
+    "take the call. Speak naturally in the caller's language (Telugu or "
+    "English). Greet them, explain you're Rohan's assistant, ask who is "
+    "calling and what they need, and tell them you'll pass the message to "
+    "Rohan. Keep replies short and conversational — this is a phone call."
+)
 
 GREETING = (
-    "Hi, Rohan is currently busy. Please leave a message after the tone, "
-    "and he will get back to you as soon as possible."
+    "నమస్తే! నేను రోహన్ గారి అసిస్టెంట్ మాక్స్‌ని. రోహన్ గారు ప్రస్తుతం బిజీగా "
+    "ఉన్నారు. మీరు ఎవరు మాట్లాడుతున్నారో, ఏం కావాలో చెప్పండి — నేను రోహన్ గారికి "
+    "చెప్తాను."
 )
 
 
-async def main():
-    if not all([LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET]):
-        print("ERROR: Set LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET in .env")
-        sys.exit(1)
+async def entrypoint(ctx: JobContext) -> None:
+    await ctx.connect()
 
-    print(f"LiveKit Agent starting...")
-    print(f"  URL: {LIVEKIT_URL}")
-    print(f"  Ollama: {OLLAMA_HOST} ({OLLAMA_MODEL})")
-    print()
-    print("NOTE: Install livekit-agents and plugins to enable voice AI:")
-    print("  pip install livekit-agents livekit-plugins-deepgram livekit-plugins-openai")
-    print()
-    print("Then uncomment the full agent code below.")
-    print()
+    session = AgentSession(
+        stt=WhisperSTT(
+            model=WHISPER_MODEL,
+            device=WHISPER_DEVICE,
+            language=WHISPER_LANGUAGE,
+        ),
+        llm=openai.LLM.with_ollama(
+            model=OLLAMA_MODEL,
+            base_url=OLLAMA_OPENAI_BASE,
+        ),
+        tts=EdgeTTS(voice=TTS_VOICE),
+        vad=silero.VAD.load(),
+    )
 
-    """
-    Full agent implementation (uncomment when dependencies are installed):
-    
-    from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli
-    
-    async def entrypoint(ctx: JobContext):
-        await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-        # Your voice agent logic here
-        pass
-    
-    if __name__ == "__main__":
-        cli.run_app(WorkerOptions(entrypoint_factory=entrypoint))
-    """
+    await session.start(
+        agent=Agent(instructions=SYSTEM_PROMPT),
+        room=ctx.room,
+    )
+
+    # Speak first so the caller hears the assistant immediately on answer.
+    await session.say(GREETING, allow_interruptions=True)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))

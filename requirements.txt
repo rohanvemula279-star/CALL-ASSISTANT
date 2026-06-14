@@ -18,5 +18,7 @@ tenacity
 jinja2
 python-dateutil
 livekit
-edge-tts
+livekit-agents
+livekit-plugins-openai
+livekit-plugins-silero
 edge-tts
