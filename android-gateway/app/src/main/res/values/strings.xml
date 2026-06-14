@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Rohan Call Assistant</string>
+    <string name="server_url_hint">Server URL (e.g. http://192.168.1.20:8000)</string>
+    <string name="notif_channel_name">Call Assistant Service</string>
+    <string name="notif_channel_desc">Runs the auto-answer and voicemail service in the background.</string>
+    <string name="notif_title">Call Assistant</string>
+    <string name="notif_text">Monitoring for incoming calls</string>
+    <string name="btn_start">Start service</string>
+    <string name="btn_stop">Stop service</string>
+    <string name="btn_discover">Discover laptop on Wi-Fi</string>
+    <string name="label_status">Status: %1$s</string>
+    <string name="auto_answer_label">Auto-answer calls</string>
+    <string name="accessibility_btn">Accessibility settings</string>
+    <string name="accessibility_service_desc">Enables auto-answering of incoming calls by detecting the answer button on screen.</string>
+</resources>

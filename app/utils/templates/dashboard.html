@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Phone Assistant — Dashboard</title>
+  <link rel="stylesheet" href="/static/dashboard.css" />
+</head>
+<body>
+  <header>
+    <h1>📞 AI Phone Assistant</h1>
+    <p class="muted">Missed calls &amp; callback queue</p>
+  </header>
+
+  <section class="tiles">
+    <div class="tile">
+      <div class="num">{{ stats.total }}</div>
+      <div class="lbl">Total</div>
+    </div>
+    <div class="tile pending">
+      <div class="num">{{ stats.pending }}</div>
+      <div class="lbl">Pending</div>
+    </div>
+    <div class="tile progress">
+      <div class="num">{{ stats.in_progress }}</div>
+      <div class="lbl">In progress</div>
+    </div>
+    <div class="tile done">
+      <div class="num">{{ stats.completed }}</div>
+      <div class="lbl">Completed</div>
+    </div>
+    <div class="tile dismissed">
+      <div class="num">{{ stats.dismissed }}</div>
+      <div class="lbl">Dismissed</div>
+    </div>
+  </section>
+
+  <nav class="filter">
+    <a class="{% if status_filter == 'all' %}active{% endif %}" href="/dashboard">All</a>
+    <a class="{% if status_filter == 'pending' %}active{% endif %}" href="/dashboard?status=pending">Pending</a>
+    <a class="{% if status_filter == 'in_progress' %}active{% endif %}" href="/dashboard?status=in_progress">In progress</a>
+    <a class="{% if status_filter == 'completed' %}active{% endif %}" href="/dashboard?status=completed">Completed</a>
+    <a class="{% if status_filter == 'dismissed' %}active{% endif %}" href="/dashboard?status=dismissed">Dismissed</a>
+  </nav>
+
+  <main>
+    {% if not rows %}
+      <div class="empty">
+        <p>No missed calls yet. <a href="/incoming-call">Simulate one</a>.</p>
+      </div>
+    {% else %}
+      <table>
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Name</th>
+            <th>Number</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td>
+                {% if r.created_at %}
+                  {{ r.created_at.strftime("%Y-%m-%d %H:%M") }}
+                {% else %}-{% endif %}
+              </td>
+              <td>{{ r.caller_name or "—" }}</td>
+              <td><a href="tel:{{ r.caller }}">{{ r.caller }}</a></td>
+              <td><span class="status status-{{ r.status }}">{{ r.status.replace('_', ' ') }}</span></td>
+              <td class="actions">
+                {% if r.status in ('pending', 'in_progress') %}
+                  <form method="post" action="/dashboard/action" style="display:inline">
+                    <input type="hidden" name="callback_id" value="{{ r.id }}" />
+                    <input type="hidden" name="action" value="callback" />
+                    <button class="btn" type="submit">📞 Call Back</button>
+                  </form>
+                  <form method="post" action="/dashboard/action" style="display:inline">
+                    <input type="hidden" name="callback_id" value="{{ r.id }}" />
+                    <input type="hidden" name="action" value="sms" />
+                    <button class="btn" type="submit">💬 SMS</button>
+                  </form>
+                  <form method="post" action="/dashboard/action" style="display:inline">
+                    <input type="hidden" name="callback_id" value="{{ r.id }}" />
+                    <input type="hidden" name="action" value="done" />
+                    <button class="btn btn-done" type="submit">✅ Done</button>
+                  </form>
+                  <form method="post" action="/dashboard/action" style="display:inline">
+                    <input type="hidden" name="callback_id" value="{{ r.id }}" />
+                    <input type="hidden" name="action" value="dismiss" />
+                    <button class="btn btn-muted" type="submit">Dismiss</button>
+                  </form>
+                {% elif r.status == 'completed' %}
+                  <form method="post" action="/dashboard/action" style="display:inline">
+                    <input type="hidden" name="callback_id" value="{{ r.id }}" />
+                    <input type="hidden" name="action" value="reopen" />
+                    <button class="btn btn-muted" type="submit">Re-open</button>
+                  </form>
+                {% elif r.status == 'dismissed' %}
+                  <form method="post" action="/dashboard/action" style="display:inline">
+                    <input type="hidden" name="callback_id" value="{{ r.id }}" />
+                    <input type="hidden" name="action" value="reopen" />
+                    <button class="btn btn-muted" type="submit">Re-open</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </main>
+
+  <footer>
+    <p class="muted">
+      <a href="/docs">API docs</a> ·
+      <a href="/dashboard/data">JSON</a> ·
+      <a href="/history">Recent conversations</a>
+    </p>
+  </footer>
+</body>
+</html>

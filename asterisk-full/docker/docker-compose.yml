@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-phone-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  ollama-puller:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama: { condition: service_healthy }
+    entrypoint: ["sh", "-c"]
+    command: "ollama pull minimax-m3"
+    restart: "no"
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: ai-phone-app
+    depends_on:
+      ollama: { condition: service_healthy }
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./.env:/app/.env:ro
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=minimax-m3
+      - WHISPER_MODEL=base
+      - PIPER_VOICE=en_US-amy-medium
+    restart: unless-stopped
+
+  asterisk:
+    build:
+      context: docker/
+      dockerfile: Dockerfile
+    container_name: ai-phone-asterisk
+    depends_on:
+      - app
+    network_mode: host    # SIP/RTP don't NAT through Docker; bind directly
+    cap_add: [NET_ADMIN, SYS_PTRACE]
+    volumes:
+      - ./config/:/etc/asterisk/:ro
+      - ./agi/:/usr/local/bin/:ro
+      - ./ai-recordings/:/var/lib/asterisk/ai/
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+    driver: local
